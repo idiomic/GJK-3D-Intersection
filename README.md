@@ -1,1 +1,2 @@
 # Lua-GJK
+This Lua script is an implementation of the Gilbert-Johnson-Keerthi (GJK) intersection and shortest seperating vector algorithms in 3D. It was created and testing in Roblox using their implementation of the vector dot product, cross product, and magnitude. The distance and intersection functions require you to implement a function for each object you are testing that finds the point furthest on the object in any given vector direction. This function is commonly called the support function. There is no software license. 
