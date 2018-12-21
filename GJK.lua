@@ -18,7 +18,6 @@
 local abs = math.abs
 local min = math.min
 local huge = math.huge
---local Vector3 = require(Vector3) UNCOMMENT FOR MODULE VECTOR3
 local origin = Vector3.new()
 
 --A iterator for a generic for loop that runs through a table returning
@@ -53,14 +52,12 @@ local function loopRemoved(data, step)
 	return step, copy, data[step]
 end
 
-
 --Finds the vector direction to search for the next point
 --in the simplex. 
 local function getDir(points, to)
 	--Single point, return vector
 	if #points == 1 then
-		local dir = to - points[1]
-		return dir
+		return to - points[1]
 		
 	--Line, return orthogonal line
 	elseif #points == 2 then
@@ -74,11 +71,7 @@ local function getDir(points, to)
 		local v2 = points[2] - points[1]
 		local v3 = to - points[1]
 		local n = v1:Cross(v2)
-		if n:Dot(v3) >= 0 then
-			return n
-		else
-			return -n
-		end
+		return n:Dot(v3) >= 0 and n or -n
 	end
 end
 
@@ -104,11 +97,12 @@ local function case(points, support)
 	
 	--Find the new search direction and get the furthest point
 	local dir = getDir(points, origin)
-	local newPoint = support(dir)
+	local newPoint, short = support(dir)
 	
 	--If the point isn't far enough in the direction, the
 	--objects are seperated.
-	if newPoint:Dot(dir) < 0 then
+	--print(newPoint, '\n', dir, '\n', newPoint:Dot(dir), '\n')
+	if short then
 		return false, points
 		
 	--Otherwise move onto the next case with the new point
@@ -128,13 +122,22 @@ function intersection(s1, s2, sV)
 	--The support function finds a point furthest in the
 	--desired direction in the Minkowski space of the two 
 	--objects
+	local count = 0
 	local function support (dir)
-		return s1(dir) - s2(-dir)
+		count = count + 1
+		local a = s1(dir)
+		local b = s2(-dir)
+		return s1(dir) - s2(-dir), dir:Dot(a) < dir:Dot(b)
 	end
 	
 	--Get the ball rolling with a single point in the start
 	--direction.
-	return case({support(sV)}, support)
+	local p1, short = support(sV)
+	if short then
+		return false
+	else
+		return case({p1}, support)
+	end
 end
 
 --Checks if two vectors are equal
