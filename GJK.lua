@@ -2,11 +2,11 @@
 --Tyler R. Hoyer
 --11/20/2014
 
---May return early if no intersection if found. If it is primed, it will run in amortized constant speed (untested).
+--May return early if no intersection if found. If it is primed, it will run in amortized constant time (untested).
 
 --If the distance function is used between colliding objects, the program
 --may loop a hundred times without finding a result. If this is the case, 
---it will throw an error.The check is omited for speed. If the objects
+--it will throw an error. The check is omited for speed. If the objects
 --might intersect eachother, call the intersection method first.
 
 --Objects must implement the :getFarthestPoint(dir) function which returns the
@@ -20,12 +20,6 @@ local min = math.min
 local huge = math.huge
 local origin = Vector3.new()
 
---A iterator for a generic for loop that runs through a table returning
---every combination of the values in the table that lacks one value. For
---example, the combinations of {a, b, c} returned are {a, b}, {a, c}, 
---and {b, c}. Requires the table and 0 to be suppled as the state and
---interation variable in the for loop. Returns the interation variable,
---the combination, and the removed value in that order.
 local function loopRemoved(data, step)
 	--We're on the next step
 	step = step + 1
@@ -71,44 +65,7 @@ local function getDir(points, to)
 		local v2 = points[2] - points[1]
 		local v3 = to - points[1]
 		local n = v1:Cross(v2)
-		return n:Dot(v3) >= 0 and n or -n
-	end
-end
-
---Add a point to the simplex or determine that there is no
---intersections. Takes the points already found and the
---support function
-local function case(points, support)
-	
-	--Check if every point is in the correct direction
-	if #points > 1 then
-		for step, points, removed in loopRemoved, points, 0 do
-			if points[1]:Dot(getDir(points, removed)) > 0 then
-				return case(points, support)
-			end
-		end
-	end
-	
-	--If we have formed a simplex and they are all in
-	--the right direction, then there is an intersection.
-	if #points == 4 then
-		return true
-	end
-	
-	--Find the new search direction and get the furthest point
-	local dir = getDir(points, origin)
-	local newPoint, short = support(dir)
-	
-	--If the point isn't far enough in the direction, the
-	--objects are seperated.
-	--print(newPoint, '\n', dir, '\n', newPoint:Dot(dir), '\n')
-	if short then
-		return false, points
-		
-	--Otherwise move onto the next case with the new point
-	else
-		points[#points + 1] = newPoint
-		return case(points, support)
+		return n:Dot(v3) < 0 and -n or n
 	end
 end
 
@@ -119,25 +76,39 @@ end
 --vector, the program runs in constant time. (excluding the
 --user implemented functions for finding the furthest point).
 function intersection(s1, s2, sV)
-	--The support function finds a point furthest in the
-	--desired direction in the Minkowski space of the two 
-	--objects
-	local count = 0
-	local function support (dir)
-		count = count + 1
+	local points = {}
+
+	-- find point 
+	local function support(dir)
 		local a = s1(dir)
 		local b = s2(-dir)
-		return s1(dir) - s2(-dir), dir:Dot(a) < dir:Dot(b)
+		points[#points + 1] = a - b
+		return dir:Dot(a) < dir:Dot(b)
 	end
 	
-	--Get the ball rolling with a single point in the start
-	--direction.
-	local p1, short = support(sV)
-	if short then
+	-- find all points forming a simplex
+	if support(sV)
+		or support(getDir(points, origin))
+		or support(getDir(points, origin))
+		or support(getDir(points, origin))
+	then
 		return false
-	else
-		return case({p1}, support)
 	end
+
+	local step, others, removed = 0
+	repeat
+		step, others, removed = loopRemoved(points, step)
+		local dir = getDir(others, removed)
+		if others[1]:Dot(dir) > 0 then
+			points = others
+			if support(-dir) then
+				return false
+			end
+			step = 0
+		end
+	until step == 4
+	
+	return true
 end
 
 --Checks if two vectors are equal
@@ -278,7 +249,7 @@ function distance(s1, s2, sV)
 	
 	--Return an error if no point was found in the maximum 
 	--number of iterations
-	error()
+	error 'Unable to find distance, are they intersecting?'
 end
 
 return {
